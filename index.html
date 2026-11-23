@@ -71,16 +71,28 @@
         .reader-body article code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
         .reader-body article blockquote { margin-left: 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--text-2); }
         .empty-state { padding: 48px 24px; color: var(--text-3); text-align: center; font-size: 13px; }
-        /* Full screen：隐藏顶栏与左侧两栏，只留下文档区 */
+        /* Full screen：隐藏顶栏与原左侧两栏，正文和目录占满视口 */
         body.reader-fullscreen .topbar,
         body.reader-fullscreen .sidebar,
         body.reader-fullscreen .note-list-pane { display: none; }
-        body.reader-fullscreen .workspace { height: 100vh; grid-template-columns: minmax(0, 1fr); }
-        .restore-pane { position: fixed; z-index: 5; left: 0; top: 50%; display: none; width: 24px; height: 56px; padding: 0; transform: translateY(-50%); place-items: center; border: 1px solid var(--line); border-left: 0; border-radius: 0 8px 8px 0; background: var(--surface); color: var(--text-3); cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,.06); }
-        .restore-pane:hover { color: var(--accent); background: var(--accent-soft); }
-        body.reader-fullscreen .restore-pane { display: grid; }
-        .side-link:focus-visible, .note-item:focus-visible, .restore-pane:focus-visible, .top-actions a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-        .side-link, .note-item, .restore-pane, .top-actions a { transition: background-color 140ms cubic-bezier(.22,1,.36,1), color 140ms cubic-bezier(.22,1,.36,1); }
+        body.reader-fullscreen .workspace { height: 100vh; grid-template-columns: 240px minmax(0, 1fr); }
+        /* Full screen：左侧显示当前文档的标题目录 */
+        .toc-pane { display: none; min-width: 0; min-height: 0; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line); }
+        body.reader-fullscreen .toc-pane { display: flex; }
+        .toc-heading { height: 56px; display: flex; flex: none; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--line); color: var(--text-2); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+        .toc-back { flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text-3); cursor: pointer; }
+        .toc-back:hover { color: var(--accent); background: var(--accent-soft); }
+        .toc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 8px 32px; scrollbar-width: thin; scrollbar-color: #d3d6da transparent; }
+        .toc-link { display: block; padding: 6px 12px; border-left: 2px solid var(--line); color: var(--text-2); font-size: 12px; line-height: 1.5; text-decoration: none; cursor: pointer; }
+        .toc-link:hover { color: var(--accent); }
+        .toc-link.active { border-left-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+        .toc-link.depth-2 { padding-left: 24px; }
+        .toc-link.depth-3 { padding-left: 36px; }
+        .toc-link.depth-4 { padding-left: 48px; font-size: 11px; }
+        .toc-empty { padding: 12px; color: var(--text-3); font-size: 12px; }
+        .reader-body article h1, .reader-body article h2, .reader-body article h3, .reader-body article h4 { scroll-margin-top: 72px; }
+        .side-link:focus-visible, .note-item:focus-visible, .toc-back:focus-visible, .top-actions a:focus-visible, .toc-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .side-link, .note-item, .toc-back, .top-actions a { transition: background-color 140ms cubic-bezier(.22,1,.36,1), color 140ms cubic-bezier(.22,1,.36,1); }
     </style>
 </head>
 <body>
@@ -99,17 +111,28 @@
             <div class="list-heading"><strong id="list-title">Group All</strong><small id="note-count">加载中</small></div>
             <nav class="note-list" id="note-list"></nav>
         </section>
+        <aside class="toc-pane" aria-label="文档目录">
+            <div class="toc-heading">
+                <button class="toc-back" id="toc-back" type="button" title="展开侧栏" aria-label="展开侧栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+                <span>On this page</span>
+            </div>
+            <nav class="toc-list" id="toc-list"></nav>
+        </aside>
         <main class="reader" aria-live="polite">
             <div class="reader-toolbar"><span id="reader-status">Notes / Group All</span><span class="toolbar-buttons"><a href="https://bruce-peng24.github.io/ai-dev-notes/">Refresh</a></span></div>
             <div class="reader-body" id="reader-body"><div class="empty-state">正在加载笔记…</div></div>
         </main>
     </div>
-    <button class="restore-pane" id="restore-pane" type="button" title="展开侧栏" aria-label="展开侧栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
     <script>
         const noteList = document.getElementById('note-list');
         const reader = document.getElementById('reader-body');
+        const readerPane = document.querySelector('.reader');
         const search = document.getElementById('search');
+        const tocList = document.getElementById('toc-list');
         let pages = [];
+        let tocHeadings = [];
+        let tocLinks = [];
+        let tocRafPending = false;
         let activePath = '';
         let activeGroup = 'all';
 
@@ -187,27 +210,61 @@
                 </a>`).join('') : '<div class="empty-state">没有找到相关笔记</div>';
         }
 
+        // 文档目录：从当前渲染出的标题生成，切换文章时重建
+        function setReaderHtml(html) {
+            readerPane.scrollTop = 0;
+            reader.innerHTML = html;
+            buildToc();
+        }
+
+        function buildToc() {
+            tocHeadings = [...reader.querySelectorAll('article h1, article h2, article h3, article h4')];
+            tocList.innerHTML = tocHeadings.length
+                ? tocHeadings.map((heading, index) => {
+                    heading.id = `toc-heading-${index}`;
+                    const level = Number(heading.tagName.slice(1));
+                    const text = heading.textContent.trim() || '(untitled)';
+                    return `<a class="toc-link depth-${level}" href="#" data-index="${index}">${escapeHtml(text)}</a>`;
+                }).join('')
+                : '<div class="toc-empty">No headings in this note</div>';
+            tocLinks = [...tocList.querySelectorAll('.toc-link')];
+            updateTocActive();
+        }
+
+        function updateTocActive() {
+            if (!tocHeadings.length) return;
+            const readerTop = readerPane.getBoundingClientRect().top;
+            let active = 0;
+            tocHeadings.forEach((heading, index) => {
+                if (heading.getBoundingClientRect().top - readerTop <= 80) active = index;
+            });
+            if (readerPane.scrollTop + readerPane.clientHeight >= readerPane.scrollHeight - 4) {
+                active = tocHeadings.length - 1;
+            }
+            tocLinks.forEach((link, index) => link.classList.toggle('active', index === active));
+        }
+
         async function openPage(path) {
             const page = pages.find(item => item.path === path);
             if (!page) {
                 activePath = '';
                 document.getElementById('reader-status').textContent = `Notes / ${groupLabel()}`;
-                reader.innerHTML = '<div class="empty-state">从左侧列表选择一篇笔记开始阅读</div>';
+                setReaderHtml('<div class="empty-state">从左侧列表选择一篇笔记开始阅读</div>');
                 renderList(search.value);
                 return;
             }
             activePath = page.path;
             document.getElementById('reader-status').textContent = `Notes / ${groupLabel()} / ${page.label}`;
-            reader.innerHTML = '<div class="empty-state">正在打开笔记…</div>';
+            setReaderHtml('<div class="empty-state">正在打开笔记…</div>');
             renderList(search.value);
             try {
                 const response = await fetch(`./${page.path}`);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const markdown = await response.text();
                 const rendered = marked.parse(markdown);
-                reader.innerHTML = `<article>${rendered}</article>`;
+                setReaderHtml(`<article>${rendered}</article>`);
             } catch {
-                reader.innerHTML = `<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过 Web 服务器打开。</div>`;
+                setReaderHtml(`<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过 Web 服务器打开。</div>`);
             }
         }
 
@@ -313,15 +370,38 @@
             .catch(error => {
                 console.error(error);
                 document.getElementById('note-count').textContent = '加载失败';
-                reader.innerHTML = '<div class="empty-state">无法加载笔记目录：请检查网络，并确认通过 Web 服务器打开此页面。</div>';
+                setReaderHtml('<div class="empty-state">无法加载笔记目录：请检查网络，并确认通过 Web 服务器打开此页面。</div>');
             });
 
         search.addEventListener('input', () => renderList(search.value));
+
+        // 点击目录项平滑滚动到对应标题
+        tocList.addEventListener('click', event => {
+            const link = event.target.closest('.toc-link');
+            if (!link) return;
+            event.preventDefault();
+            const heading = tocHeadings[Number(link.dataset.index)];
+            if (!heading) return;
+            tocLinks.forEach(item => item.classList.toggle('active', item === link));
+            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        // 正文滚动时反向高亮当前所在章节
+        readerPane.addEventListener('scroll', () => {
+            if (tocRafPending || !tocHeadings.length) return;
+            tocRafPending = true;
+            requestAnimationFrame(() => {
+                tocRafPending = false;
+                updateTocActive();
+            });
+        }, { passive: true });
+
         document.getElementById('fullscreen-read').addEventListener('click', event => {
             event.preventDefault();
             document.body.classList.add('reader-fullscreen');
+            requestAnimationFrame(updateTocActive);
         });
-        document.getElementById('restore-pane').addEventListener('click', () => {
+        document.getElementById('toc-back').addEventListener('click', () => {
             document.body.classList.remove('reader-fullscreen');
         });
         document.addEventListener('keydown', event => {
