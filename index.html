@@ -1,11 +1,303 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <title>AI Dev Notes</title>
+    <style>
+        :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #333; background: #f5f6f7; font-synthesis: none; }
+        * { box-sizing: border-box; }
+        body { height: 100vh; min-width: 760px; margin: 0; overflow: hidden; }
+        button, input { font: inherit; }
+        .topbar { height: 58px; display: flex; align-items: center; gap: 28px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e9eaec; }
+        .brand { display: flex; align-items: center; gap: 9px; min-width: 203px; color: #30343a; font-size: 17px; font-weight: 650; }
+        .brand-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 7px; color: #fff; background: #d94b40; font-size: 17px; font-weight: 700; }
+        .search { width: min(430px, 42vw); height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #f5f6f7; border: 1px solid #f0f0f0; border-radius: 5px; color: #989da3; }
+        .search input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: #333; font-size: 13px; }
+        .top-actions { display: flex; align-items: center; gap: 17px; margin-left: auto; color: #737980; font-size: 13px; }
+        .avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #8a9caf; font-weight: 600; }
+        .workspace { height: calc(100vh - 58px); display: grid; grid-template-columns: 218px 300px minmax(360px, 1fr); }
+        .sidebar { display: flex; flex-direction: column; padding: 18px 12px; background: #fafafa; border-right: 1px solid #e9eaec; }
+        .new-note { width: 100%; height: 40px; margin: 0 0 20px; border: 0; border-radius: 4px; background: #df5145; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .section-label { padding: 10px 12px 7px; color: #999fa5; font-size: 11px; }
+        .side-link { height: 37px; display: flex; align-items: center; gap: 11px; padding: 0 12px; border-radius: 4px; color: #50555a; font-size: 13px; text-decoration: none; cursor: pointer; }
+        .side-link:hover, .side-link.active { color: #d94b40; background: #fbeeed; }
+        .side-icon { width: 16px; color: #8b9197; text-align: center; font-size: 15px; }
+        .side-link.active .side-icon { color: #d94b40; }
+        .group-count { margin-left: auto; color: #b0b5ba; font-size: 11px; }
+        .sidebar-bottom { margin-top: auto; border-top: 1px solid #eceef0; padding-top: 12px; }
+        .note-list-pane { min-width: 0; background: #fff; border-right: 1px solid #e9eaec; }
+        .list-heading { height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #f0f0f0; }
+        .list-heading strong { font-size: 14px; font-weight: 600; }
+        .list-heading small { color: #a0a4a9; font-size: 12px; }
+        .note-list { height: calc(100% - 57px); overflow: auto; }
+        .note-item { display: block; min-height: 91px; padding: 16px 18px 14px; border-bottom: 1px solid #f1f1f1; color: inherit; text-decoration: none; cursor: pointer; }
+        .note-item:hover { background: #fafafa; }
+        .note-item.active { background: #fff8f7; border-left: 3px solid #df5145; padding-left: 15px; }
+        .note-title { overflow: hidden; margin-bottom: 8px; color: #35383b; font-size: 14px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+        .note-meta { display: flex; justify-content: space-between; gap: 10px; color: #a0a4a9; font-size: 11px; }
+        .reader { padding-bottom: 100px; min-width: 0; overflow: auto; background: #fff; }
+        .reader-toolbar { position: sticky; z-index: 1; top: 0; height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; background: #fff; border-bottom: 1px solid #f0f0f0; color: #8c9298; font-size: 12px; }
+        .toolbar-buttons { display: flex; gap: 18px; }
+        .reader-body { width: min(100% - 80px, 760px); margin: 0 auto; padding: 0px 0 90px; line-height: 1.85; overflow-wrap: anywhere; }
+        .reader-body article { color: #45494d; font-size: 15px; }
+        .reader-body article h1, .reader-body article h2, .reader-body article h3 { margin: 24px 0 .65em; color: #303438; }
+        .reader-body article h1 { font-size: 26px; }
+        .reader-body article h2 { font-size: 21px; }
+        .reader-body article a { color: #d94b40; }
+        .reader-body article pre { padding: 16px; overflow: auto; border-radius: 4px; background: #f6f7f8; }
+        .reader-body article code { font-family: Consolas, monospace; }
+        .reader-body article blockquote { margin-left: 0; padding: 2px 16px; border-left: 3px solid #ddd; color: #858b91; }
+        .empty-state { padding: 48px 24px; color: #9a9fa5; text-align: center; font-size: 13px; }
+        @media (max-width: 980px) { .workspace { grid-template-columns: 185px 250px minmax(320px, 1fr); } .brand { min-width: 170px; } .reader-body { width: calc(100% - 48px); } }
+        @media (max-width: 760px) { body { min-width: 360px; overflow: auto; } .topbar { gap: 12px; padding: 0 12px; } .brand { min-width: auto; font-size: 14px; }.brand-icon { flex: 0 0 30px; }.search { width: auto; flex: 1; }.top-actions { display: none; }.workspace { height: auto; min-height: calc(100vh - 58px); grid-template-columns: 64px minmax(0, 1fr); }.sidebar { padding: 12px 6px; }.new-note { font-size: 0; }.new-note::after { content: "+"; font-size: 23px; }.section-label, .side-link span:not(.side-icon), .sidebar-bottom { display: none; }.side-link { justify-content: center; padding: 0; }.note-list-pane { display: none; }.reader { grid-column: 2; min-height: calc(100vh - 58px); }.reader-toolbar { padding: 0 16px; }.reader-body { width: calc(100% - 36px); padding-top: 30px; } }
+    </style>
 </head>
 <body>
-    <a href="./docs/test.md">test</a>
+    <header class="topbar">
+        <div class="brand"><span class="brand-icon">A</span><span>AI Dev Notes</span></div>
+        <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索笔记" aria-label="搜索笔记"></label>
+        <div class="top-actions"><a href="https://github.com/Bruce-peng24/ai-dev-notes" target="_blank">GitHub</a></div>
+    </header>
+    <div class="workspace">
+        <aside class="sidebar" aria-label="笔记导航">
+            <button class="new-note" id="all-notes">＋　全部笔记</button>
+            <div class="section-label">分组</div>
+            <nav id="group-list" aria-label="笔记分组"></nav>
+            <div class="sidebar-bottom"><a class="side-link" href="#"><span class="side-icon">⬜</span><span>blank</span></a></div>
+        </aside>
+        <section class="note-list-pane" aria-label="笔记列表">
+            <div class="list-heading"><strong id="list-title">全部分组</strong><small id="note-count">加载中</small></div>
+            <nav class="note-list" id="note-list"></nav>
+        </section>
+        <main class="reader" aria-live="polite">
+            <div class="reader-toolbar"><span id="reader-status">我的文档 / 全部分组</span><span class="toolbar-buttons"><a href="https://bruce-peng24.github.io/ai-dev-notes/">HOME</a></span></div>
+            <div class="reader-body" id="reader-body"><div class="empty-state">正在加载笔记…</div></div>
+        </main>
+    </div>
+    <script>
+        const noteList = document.getElementById('note-list');
+        const reader = document.getElementById('reader-body');
+        const search = document.getElementById('search');
+        let pages = [];
+        let activePath = '';
+        let activeGroup = 'all';
+
+        marked.setOptions({ breaks: true, gfm: true });
+
+        function pageGroup(path) {
+            const segments = path.replace(/^\.\//, '').replace(/^docs\//, '').split('/');
+            return segments.length > 1 ? segments[0] : '未分组';
+        }
+
+        function groupOf(page) {
+            return page.group || pageGroup(page.path);
+        }
+
+        function groupLabel() {
+            return activeGroup === 'all' ? '全部分组' : activeGroup;
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+
+        function groupSort(a, b) {
+            if (a === '未分组') return 1;
+            if (b === '未分组') return -1;
+            return a.localeCompare(b, undefined, { numeric: true });
+        }
+
+        function renderGroups() {
+            // 分组完全从文章路径推导，数据文件里不保存任何分组名
+            const counted = [...new Set(pages.map(groupOf))]
+                .map(name => ({ name, count: pages.filter(page => groupOf(page) === name).length }));
+            counted.sort((a, b) => groupSort(a.name, b.name));
+            const items = [
+                { id: 'all', label: '全部分组', icon: '▦', count: pages.length },
+                ...counted.map(({ name, count }) => ({ id: name, label: name, icon: name === '未分组' ? '▧' : '▤', count }))
+            ];
+            document.getElementById('list-title').textContent = groupLabel();
+            document.title = `${groupLabel()} · AI Dev Notes`;
+            document.getElementById('group-list').innerHTML = items.map(group => `<a class="side-link group-link${activeGroup === group.id ? ' active' : ''}" href="#" data-group="${escapeHtml(group.id)}"><span class="side-icon">${group.icon}</span><span>${escapeHtml(group.label)}</span><span class="group-count">${group.count}</span></a>`).join('');
+        }
+
+        function selectGroup(event) {
+            const selectedLink = event.target.closest('.group-link');
+            if (!selectedLink) return;
+            event.preventDefault();
+            activeGroup = selectedLink.dataset.group;
+            renderGroups();
+            renderList(search.value);
+            const currentPage = pages.find(page => page.path === activePath);
+            if (!currentPage || (activeGroup !== 'all' && groupOf(currentPage) !== activeGroup)) {
+                const firstPage = pages.find(page => activeGroup === 'all' || groupOf(page) === activeGroup);
+                if (firstPage) location.hash = encodeURIComponent(firstPage.path);
+                else syncRoute();
+            }
+        }
+
+        function renderList(query = '') {
+            const filtered = pages.filter(page => {
+                const matchesGroup = activeGroup === 'all' || groupOf(page) === activeGroup;
+                const normalizedQuery = query.toLowerCase();
+                return matchesGroup && (page.label.toLowerCase().includes(normalizedQuery) || page.path.toLowerCase().includes(normalizedQuery));
+            });
+            document.getElementById('note-count').textContent = `${filtered.length} 篇笔记`;
+            noteList.innerHTML = filtered.length ? filtered.map(page => `
+                <a class="note-item${page.path === activePath ? ' active' : ''}" href="#${encodeURIComponent(page.path)}">
+                    <div class="note-title">${escapeHtml(page.label)}</div>
+                    <div class="note-meta"><span>${escapeHtml(page.path)}</span><span>笔记</span></div>
+                </a>`).join('') : '<div class="empty-state">没有找到相关笔记</div>';
+        }
+
+        async function openPage(path) {
+            const page = pages.find(item => item.path === path);
+            if (!page) {
+                activePath = '';
+                document.getElementById('reader-status').textContent = `我的文档 / ${groupLabel()}`;
+                reader.innerHTML = '<div class="empty-state">从左侧列表选择一篇笔记开始阅读</div>';
+                renderList(search.value);
+                return;
+            }
+            activePath = page.path;
+            document.getElementById('reader-status').textContent = `我的文档 / ${groupLabel()} / ${page.label}`;
+            reader.innerHTML = '<div class="empty-state">正在打开笔记…</div>';
+            renderList(search.value);
+            try {
+                const response = await fetch(`./${page.path}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const markdown = await response.text();
+                const rendered = marked.parse(markdown);
+                reader.innerHTML = `<article>${rendered}</article>`;
+            } catch {
+                reader.innerHTML = `<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过本地 Web 服务器打开。</div>`;
+            }
+        }
+
+        function syncRoute() {
+            openPage(decodeURIComponent(location.hash.slice(1)));
+        }
+
+        function normalizePage(item) {
+            const pagePath = String(item.path || '').replace(/^\.\//, '').replace(/\\/g, '/');
+            const fallback = pagePath.split('/').pop().replace(/\.md$/i, '');
+            return {
+                path: pagePath,
+                label: String(item.label || fallback),
+                group: item.group || pageGroup(pagePath)
+            };
+        }
+
+        async function fetchPagesFromGitHub() {
+            // GitHub Pages 本身就是静态服务器，浏览器列不了目录，
+            // 但可以直接调用 GitHub API 读取仓库文件树，实现运行时动态获取路径。
+            // 仓库信息从当前 Pages 地址推导，不写死。
+            const host = location.hostname;
+            if (!host.endsWith('.github.io')) return null;
+
+            const owner = host.slice(0, -'.github.io'.length);
+            const segments = location.pathname.split('/').filter(Boolean);
+            const repo = segments[0] && !segments[0].endsWith('.html')
+                ? segments[0]
+                : `${owner}.github.io`;
+
+            try {
+                const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+                if (!repoResponse.ok) return null;
+                const repoInfo = await repoResponse.json();
+                const branch = repoInfo.default_branch || 'main';
+
+                const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+                if (!treeResponse.ok) return null;
+                const treeInfo = await treeResponse.json();
+
+                const found = (treeInfo.tree || [])
+                    .filter(item => item.type === 'blob' && item.path.startsWith('docs/') && /\.md$/i.test(item.path))
+                    .map(item => normalizePage({ path: item.path }));
+                return found.length ? found : null;
+            } catch {
+                return null;
+            }
+        }
+
+        async function fetchPagesFromDirectoryListing() {
+            // python -m http.server 这类静态服务器会为目录生成索引页，
+            // 解析其中的链接即可本地实时遍历 docs，不需要任何自定义服务。
+            const queue = ['./docs/'];
+            const found = [];
+            const seen = new Set();
+
+            while (queue.length && found.length < 200 && seen.size < 200) {
+                const dir = queue.shift();
+                if (seen.has(dir)) continue;
+                seen.add(dir);
+
+                try {
+                    const response = await fetch(dir, { cache: 'no-store' });
+                    if (!response.ok) continue;
+                    const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+
+                    for (const link of doc.querySelectorAll('a[href]')) {
+                        let href = link.getAttribute('href');
+                        if (!href || /^(?:[a-z]+:|\/|\?|#)/i.test(href)) continue;
+                        href = href.split(/[?#]/)[0];
+                        let decoded;
+                        try { decoded = decodeURIComponent(href); } catch { decoded = href; }
+                        if (decoded === '../' || decoded.includes('..')) continue;
+
+                        const child = dir.replace(/\/?$/, '/') + decoded;
+                        if (decoded.endsWith('/')) queue.push(child);
+                        else if (/\.md$/i.test(decoded)) found.push(normalizePage({ path: child.replace(/^\.\//, '') }));
+                    }
+                } catch {
+                    // 目录不可读时继续下一项
+                }
+            }
+            return found.length ? found : null;
+        }
+
+        async function fetchPages() {
+            // 线上优先 GitHub API；本地静态服务器用目录索引；最后退回 notes.json
+            const fromGitHub = await fetchPagesFromGitHub();
+            if (fromGitHub) return fromGitHub;
+
+            const fromListing = await fetchPagesFromDirectoryListing();
+            if (fromListing) return fromListing;
+
+            const response = await fetch('./notes.json', { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!Array.isArray(data.pages) || !data.pages.length) throw new Error('清单中没有笔记');
+            return data.pages.map(normalizePage);
+        }
+
+        fetchPages()
+            .then(loaded => {
+                pages = loaded;
+                renderGroups();
+                renderList();
+                syncRoute();
+                if (!location.hash) location.hash = encodeURIComponent(pages[0].path);
+            })
+            .catch(error => {
+                console.error(error);
+                document.getElementById('note-count').textContent = '加载失败';
+                reader.innerHTML = '<div class="empty-state">无法加载笔记目录：请确认 notes.json 存在，并通过 Web 服务器打开此页面。</div>';
+            });
+
+        search.addEventListener('input', () => renderList(search.value));
+        document.getElementById('all-notes').addEventListener('click', () => {
+            location.hash = '';
+            activeGroup = 'all';
+            document.querySelectorAll('.group-link').forEach(link => link.classList.toggle('active', link.dataset.group === activeGroup));
+            renderList(search.value);
+            if (!location.hash) syncRoute();
+        });
+        document.getElementById('group-list').addEventListener('click', selectGroup);
+        window.addEventListener('hashchange', syncRoute);
+    </script>
 </body>
 </html>
