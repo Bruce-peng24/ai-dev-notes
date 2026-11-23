@@ -207,7 +207,7 @@
                 const rendered = marked.parse(markdown);
                 reader.innerHTML = `<article>${rendered}</article>`;
             } catch {
-                reader.innerHTML = `<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过本地 Web 服务器打开。</div>`;
+                reader.innerHTML = `<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过 Web 服务器打开。</div>`;
             }
         }
 
@@ -258,8 +258,6 @@
         }
 
         async function fetchPagesFromDirectoryListing() {
-            // python -m http.server 这类静态服务器会为目录生成索引页，
-            // 解析其中的链接即可本地实时遍历 docs，不需要任何自定义服务。
             const queue = ['./docs/'];
             const found = [];
             const seen = new Set();
@@ -294,18 +292,14 @@
         }
 
         async function fetchPages() {
-            // 线上优先 GitHub API；本地静态服务器用目录索引；最后退回 notes.json
+            // 线上走 GitHub API；本地静态服务器走目录索引
             const fromGitHub = await fetchPagesFromGitHub();
             if (fromGitHub) return fromGitHub;
 
             const fromListing = await fetchPagesFromDirectoryListing();
             if (fromListing) return fromListing;
 
-            const response = await fetch('./notes.json', { cache: 'no-store' });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (!Array.isArray(data.pages) || !data.pages.length) throw new Error('清单中没有笔记');
-            return data.pages.map(normalizePage);
+            throw new Error('无法获取笔记目录');
         }
 
         fetchPages()
@@ -319,7 +313,7 @@
             .catch(error => {
                 console.error(error);
                 document.getElementById('note-count').textContent = '加载失败';
-                reader.innerHTML = '<div class="empty-state">无法加载笔记目录：请确认 notes.json 存在，并通过 Web 服务器打开此页面。</div>';
+                reader.innerHTML = '<div class="empty-state">无法加载笔记目录：请检查网络，并确认通过 Web 服务器打开此页面。</div>';
             });
 
         search.addEventListener('input', () => renderList(search.value));
