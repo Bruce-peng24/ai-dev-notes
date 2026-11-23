@@ -244,6 +244,39 @@
             tocLinks.forEach((link, index) => link.classList.toggle('active', index === active));
         }
 
+        // Markdown 的相对路径是按 .md 文件所在目录写的，但 marked 的输出会被插进站点
+        // 根目录下的 index.html，浏览器会按 index.html 的位置解析相对路径，导致资源 404。
+        // 插入 DOM 前先把相对地址按笔记文件所在目录重新解析。
+        function resolveNoteUrls(html, pagePath) {
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            const noteDir = String(pagePath).replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+            const noteBase = new URL(noteDir ? `${noteDir}/` : '', document.baseURI);
+            const siteRoot = new URL('.', document.baseURI);
+
+            template.content.querySelectorAll('img[src], video[src], source[src], a[href]').forEach(el => {
+                const attr = el.hasAttribute('src') ? 'src' : 'href';
+                const value = el.getAttribute(attr);
+                // 绝对地址、协议相对地址、站点根路径、纯 hash 都保持原样
+                if (!value || /^(?:[a-z][a-z\d+.-]*:|\/\/|\/|#)/i.test(value)) return;
+
+                const resolved = new URL(value, noteBase);
+
+                // 站内指向其他笔记的相对链接转成 hash 路由，避免跳出当前这个静态站
+                if (attr === 'href' && /\.md(?:[?#]|$)/i.test(value)
+                    && resolved.origin === siteRoot.origin
+                    && resolved.pathname.startsWith(siteRoot.pathname)) {
+                    let notePath = resolved.pathname.slice(siteRoot.pathname.length);
+                    try { notePath = decodeURIComponent(notePath); } catch (error) { /* 保留原始编码 */ }
+                    el.setAttribute('href', `#${encodeURIComponent(notePath)}`);
+                    return;
+                }
+
+                el.setAttribute(attr, resolved.href);
+            });
+            return template.innerHTML;
+        }
+
         async function openPage(path) {
             const page = pages.find(item => item.path === path);
             if (!page) {
@@ -262,7 +295,7 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const markdown = await response.text();
                 const rendered = marked.parse(markdown);
-                setReaderHtml(`<article>${rendered}</article>`);
+                setReaderHtml(`<article>${resolveNoteUrls(rendered, page.path)}</article>`);
             } catch {
                 setReaderHtml(`<div class="empty-state">无法加载「${escapeHtml(page.label)}」，请确认文件存在并通过 Web 服务器打开。</div>`);
             }
