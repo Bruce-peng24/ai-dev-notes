@@ -71,7 +71,7 @@
         .reader-body article code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
         .reader-body article blockquote { margin-left: 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--text-2); }
         .empty-state { padding: 48px 24px; color: var(--text-3); text-align: center; font-size: 13px; }
-        /* 全屏阅读：隐藏顶栏与左侧两栏，只留下文档区 */
+        /* Full screen：隐藏顶栏与左侧两栏，只留下文档区 */
         body.reader-fullscreen .topbar,
         body.reader-fullscreen .sidebar,
         body.reader-fullscreen .note-list-pane { display: none; }
@@ -85,22 +85,22 @@
 </head>
 <body>
     <header class="topbar">
-        <div class="brand"><span class="brand-icon">A</span><span>AI Dev Notes</span></div>
-        <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg><input id="search" type="search" placeholder="搜索笔记" aria-label="搜索笔记"></label>
+        <div class="brand"><span class="brand-icon">AI</span><span>AI Dev Notes</span></div>
+        <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg><input id="search" type="search" placeholder="Search Notes" aria-label="Search Notes"></label>
         <div class="top-actions"><a href="https://github.com/Bruce-peng24/ai-dev-notes" target="_blank">GitHub</a></div>
     </header>
     <div class="workspace">
         <aside class="sidebar" aria-label="笔记导航">
-            <div class="section-label">分组</div>
+            <div class="section-label">Group List</div>
             <nav id="group-list" aria-label="笔记分组"></nav>
-            <div class="sidebar-bottom"><a class="side-link" id="fullscreen-read" href="#" title="全屏阅读"><span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></span><span>全屏阅读</span></a></div>
+            <div class="sidebar-bottom"><a class="side-link" id="fullscreen-read" href="#" title="Full screen"><span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></span><span>Full screen</span></a></div>
         </aside>
         <section class="note-list-pane" aria-label="笔记列表">
-            <div class="list-heading"><strong id="list-title">全部分组</strong><small id="note-count">加载中</small></div>
+            <div class="list-heading"><strong id="list-title">Group All</strong><small id="note-count">加载中</small></div>
             <nav class="note-list" id="note-list"></nav>
         </section>
         <main class="reader" aria-live="polite">
-            <div class="reader-toolbar"><span id="reader-status">我的文档 / 全部分组</span><span class="toolbar-buttons"><a href="https://bruce-peng24.github.io/ai-dev-notes/">Refresh</a></span></div>
+            <div class="reader-toolbar"><span id="reader-status">Notes / Group All</span><span class="toolbar-buttons"><a href="https://bruce-peng24.github.io/ai-dev-notes/">Refresh</a></span></div>
             <div class="reader-body" id="reader-body"><div class="empty-state">正在加载笔记…</div></div>
         </main>
     </div>
@@ -125,7 +125,7 @@
         }
 
         function groupLabel() {
-            return activeGroup === 'all' ? '全部分组' : activeGroup;
+            return activeGroup === 'all' ? 'Group All' : activeGroup;
         }
 
         function escapeHtml(value) {
@@ -150,7 +150,7 @@
                 .map(name => ({ name, count: pages.filter(page => groupOf(page) === name).length }));
             counted.sort((a, b) => groupSort(a.name, b.name));
             const items = [
-                { id: 'all', label: '全部分组', icon: 'all', count: pages.length },
+                { id: 'all', label: 'Group All', icon: 'all', count: pages.length },
                 ...counted.map(({ name, count }) => ({ id: name, label: name, icon: name === '未分组' ? 'loose' : 'group', count }))
             ];
             document.getElementById('list-title').textContent = groupLabel();
@@ -179,7 +179,7 @@
                 const normalizedQuery = query.toLowerCase();
                 return matchesGroup && (page.label.toLowerCase().includes(normalizedQuery) || page.path.toLowerCase().includes(normalizedQuery));
             });
-            document.getElementById('note-count').textContent = `${filtered.length} 篇笔记`;
+            document.getElementById('note-count').textContent = `${filtered.length} notes`;
             noteList.innerHTML = filtered.length ? filtered.map(page => `
                 <a class="note-item${page.path === activePath ? ' active' : ''}" href="#${encodeURIComponent(page.path)}">
                     <div class="note-title">${escapeHtml(page.label)}</div>
@@ -191,13 +191,13 @@
             const page = pages.find(item => item.path === path);
             if (!page) {
                 activePath = '';
-                document.getElementById('reader-status').textContent = `我的文档 / ${groupLabel()}`;
+                document.getElementById('reader-status').textContent = `Notes / ${groupLabel()}`;
                 reader.innerHTML = '<div class="empty-state">从左侧列表选择一篇笔记开始阅读</div>';
                 renderList(search.value);
                 return;
             }
             activePath = page.path;
-            document.getElementById('reader-status').textContent = `我的文档 / ${groupLabel()} / ${page.label}`;
+            document.getElementById('reader-status').textContent = `Notes / ${groupLabel()} / ${page.label}`;
             reader.innerHTML = '<div class="empty-state">正在打开笔记…</div>';
             renderList(search.value);
             try {
