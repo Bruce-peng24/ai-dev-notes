@@ -6,70 +6,94 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <title>AI Dev Notes</title>
     <style>
-        :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #333; background: #f5f6f7; font-synthesis: none; }
+        :root {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-synthesis: none;
+            --bg: #f6f7f8;
+            --surface: #ffffff;
+            --line: #e8eaed;
+            --line-soft: #f0f1f2;
+            --text: #2f3236;
+            --text-2: #666c73;
+            --text-3: #8a9097;
+            --accent: #c9433b;
+            --accent-soft: #fbf1f0;
+        }
         * { box-sizing: border-box; }
-        body { height: 100vh; min-width: 1024px; margin: 0; overflow: hidden; }
+        body { height: 100vh; min-width: 1024px; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); }
         button, input { font: inherit; }
-        .topbar { height: 58px; display: flex; align-items: center; gap: 28px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e9eaec; }
-        .brand { display: flex; align-items: center; gap: 9px; min-width: 203px; color: #30343a; font-size: 17px; font-weight: 650; }
-        .brand-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 7px; color: #fff; background: #d94b40; font-size: 17px; font-weight: 700; }
-        .search { width: min(430px, 42vw); height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #f5f6f7; border: 1px solid #f0f0f0; border-radius: 5px; color: #989da3; }
-        .search input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: #333; font-size: 13px; }
-        .top-actions { display: flex; align-items: center; gap: 17px; margin-left: auto; color: #737980; font-size: 13px; }
-        .avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #8a9caf; font-weight: 600; }
-        .workspace { height: calc(100vh - 58px); display: grid; grid-template-columns: 218px 300px minmax(360px, 1fr); }
-        .sidebar { display: flex; flex-direction: column; padding: 18px 12px; background: #fafafa; border-right: 1px solid #e9eaec; }
-        .section-label { padding: 10px 12px 7px; color: #999fa5; font-size: 11px; }
-        .side-link { height: 37px; display: flex; align-items: center; gap: 11px; padding: 0 12px; border-radius: 4px; color: #50555a; font-size: 13px; text-decoration: none; cursor: pointer; }
-        .side-link:hover, .side-link.active { color: #d94b40; background: #fbeeed; }
-        .side-icon { width: 16px; color: #8b9197; text-align: center; font-size: 15px; }
-        .side-link.active .side-icon { color: #d94b40; }
-        .group-count { margin-left: auto; color: #b0b5ba; font-size: 11px; }
-        .sidebar-bottom { margin-top: auto; border-top: 1px solid #eceef0; padding-top: 12px; }
-        .note-list-pane { min-width: 0; background: #fff; border-right: 1px solid #e9eaec; }
-        .list-heading { height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #f0f0f0; }
+        a { color: inherit; }
+        .topbar { height: 56px; display: flex; align-items: center; gap: 28px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
+        .brand { display: flex; align-items: center; gap: 8px; min-width: 200px; color: var(--text); font-size: 16px; font-weight: 600; }
+        .brand-icon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; }
+        .search { width: min(420px, 42vw); height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--bg); border: 1px solid var(--line-soft); border-radius: 8px; color: var(--text-3); }
+        .search svg { flex: none; }
+        .search input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 13px; }
+        .search:focus-within { border-color: var(--accent); background: var(--surface); }
+        .top-actions { margin-left: auto; color: var(--text-2); font-size: 13px; }
+        .top-actions a { text-decoration: none; }
+        .workspace { height: calc(100vh - 56px); display: grid; grid-template-columns: 220px 300px minmax(360px, 1fr); }
+        .sidebar { display: flex; flex-direction: column; min-height: 0; padding: 16px 12px; background: var(--bg); border-right: 1px solid var(--line); }
+        .section-label { padding: 8px 12px; color: var(--text-3); font-size: 12px; }
+        #group-list { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+        .side-link { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 8px; color: var(--text-2); font-size: 13px; text-decoration: none; cursor: pointer; }
+        .side-link:hover, .side-link.active { color: var(--accent); background: var(--accent-soft); }
+        .side-icon { flex: none; width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-3); }
+        .side-icon svg { display: block; width: 16px; height: 16px; }
+        .side-link.active .side-icon { color: var(--accent); }
+        .group-count { margin-left: auto; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+        .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; }
+        .note-list-pane { min-width: 0; min-height: 0; background: var(--surface); border-right: 1px solid var(--line); }
+        .list-heading { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); }
         .list-heading strong { font-size: 14px; font-weight: 600; }
-        .list-heading small { color: #a0a4a9; font-size: 12px; }
-        .note-list { height: calc(100% - 57px); overflow: auto; }
-        .note-item { display: block; min-height: 91px; padding: 16px 18px 14px; border-bottom: 1px solid #f1f1f1; color: inherit; text-decoration: none; cursor: pointer; }
-        .note-item:hover { background: #fafafa; }
-        .note-item.active { background: #fff8f7; border-left: 3px solid #df5145; padding-left: 15px; }
-        .note-title { overflow: hidden; margin-bottom: 8px; color: #35383b; font-size: 14px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-        .note-meta { display: flex; justify-content: space-between; gap: 10px; color: #a0a4a9; font-size: 11px; }
-        .reader { padding-bottom: 100px; min-width: 0; overflow: auto; background: #fff; }
-        .reader-toolbar { position: sticky; z-index: 1; top: 0; height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; background: #fff; border-bottom: 1px solid #f0f0f0; color: #8c9298; font-size: 12px; }
-        .toolbar-buttons { display: flex; gap: 18px; }
-        .reader-body { width: min(100% - 80px, 760px); margin: 0 auto; padding: 0px 0 90px; line-height: 1.85; overflow-wrap: anywhere; }
-        .reader-body article { color: #45494d; font-size: 15px; }
-        .reader-body article h1, .reader-body article h2, .reader-body article h3 { margin: 24px 0 .65em; color: #303438; }
+        .list-heading small { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+        .note-list { height: calc(100% - 56px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d3d6da transparent; }
+        .note-list::-webkit-scrollbar { width: 8px; }
+        .note-list::-webkit-scrollbar-thumb { border-radius: 8px; background: #d3d6da; }
+        .note-list::-webkit-scrollbar-thumb:hover { background: #b9bec4; }
+        .note-list::-webkit-scrollbar-track { background: transparent; }
+        .note-item { display: block; min-height: 88px; padding: 16px 20px; border-bottom: 1px solid var(--line-soft); color: inherit; text-decoration: none; cursor: pointer; }
+        .note-item:hover { background: var(--bg); }
+        .note-item.active { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+        .note-title { overflow: hidden; margin-bottom: 8px; color: var(--text); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+        .note-meta { color: var(--text-3); font-size: 12px; }
+        .note-path { display: block; overflow: hidden; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+        .reader { min-width: 0; overflow: auto; background: var(--surface); }
+        .reader-toolbar { position: sticky; z-index: 1; top: 0; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--surface); border-bottom: 1px solid var(--line); color: var(--text-3); font-size: 12px; }
+        .toolbar-buttons { display: flex; gap: 16px; }
+        .reader-body { width: min(100% - 64px, 760px); margin: 0 auto; padding: 0px 0 96px; line-height: 1.85; overflow-wrap: anywhere; }
+        .reader-body article { color: var(--text); font-size: 15px; }
+        .reader-body article h1, .reader-body article h2, .reader-body article h3 { margin: 28px 0 12px; color: var(--text); font-weight: 600; line-height: 1.35; }
         .reader-body article h1 { font-size: 26px; }
         .reader-body article h2 { font-size: 21px; }
-        .reader-body article a { color: #d94b40; }
-        .reader-body article pre { padding: 16px; overflow: auto; border-radius: 4px; background: #f6f7f8; }
-        .reader-body article code { font-family: Consolas, monospace; }
-        .reader-body article blockquote { margin-left: 0; padding: 2px 16px; border-left: 3px solid #ddd; color: #858b91; }
-        .empty-state { padding: 48px 24px; color: #9a9fa5; text-align: center; font-size: 13px; }
+        .reader-body article a { color: var(--accent); }
+        .reader-body article pre { padding: 16px; overflow: auto; border-radius: 8px; background: var(--bg); }
+        .reader-body article code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+        .reader-body article blockquote { margin-left: 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--text-2); }
+        .empty-state { padding: 48px 24px; color: var(--text-3); text-align: center; font-size: 13px; }
         /* 全屏阅读：隐藏顶栏与左侧两栏，只留下文档区 */
         body.reader-fullscreen .topbar,
         body.reader-fullscreen .sidebar,
         body.reader-fullscreen .note-list-pane { display: none; }
         body.reader-fullscreen .workspace { height: 100vh; grid-template-columns: minmax(0, 1fr); }
-        .restore-pane { position: fixed; z-index: 5; left: 0; top: 50%; display: none; width: 22px; height: 56px; padding: 0; transform: translateY(-50%); border: 1px solid #e9eaec; border-left: 0; border-radius: 0 6px 6px 0; background: #fff; color: #8b9197; font-size: 18px; line-height: 1; cursor: pointer; box-shadow: 2px 0 6px rgba(0,0,0,.06); }
-        .restore-pane:hover { color: #d94b40; background: #fbeeed; }
-        body.reader-fullscreen .restore-pane { display: block; }
+        .restore-pane { position: fixed; z-index: 5; left: 0; top: 50%; display: none; width: 24px; height: 56px; padding: 0; transform: translateY(-50%); place-items: center; border: 1px solid var(--line); border-left: 0; border-radius: 0 8px 8px 0; background: var(--surface); color: var(--text-3); cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,.06); }
+        .restore-pane:hover { color: var(--accent); background: var(--accent-soft); }
+        body.reader-fullscreen .restore-pane { display: grid; }
+        .side-link:focus-visible, .note-item:focus-visible, .restore-pane:focus-visible, .top-actions a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .side-link, .note-item, .restore-pane, .top-actions a { transition: background-color 140ms cubic-bezier(.22,1,.36,1), color 140ms cubic-bezier(.22,1,.36,1); }
     </style>
 </head>
 <body>
     <header class="topbar">
         <div class="brand"><span class="brand-icon">A</span><span>AI Dev Notes</span></div>
-        <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索笔记" aria-label="搜索笔记"></label>
+        <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></svg><input id="search" type="search" placeholder="搜索笔记" aria-label="搜索笔记"></label>
         <div class="top-actions"><a href="https://github.com/Bruce-peng24/ai-dev-notes" target="_blank">GitHub</a></div>
     </header>
     <div class="workspace">
         <aside class="sidebar" aria-label="笔记导航">
             <div class="section-label">分组</div>
             <nav id="group-list" aria-label="笔记分组"></nav>
-            <div class="sidebar-bottom"><a class="side-link" id="fullscreen-read" href="#" title="全屏阅读"><span class="side-icon">⛶</span><span>全屏阅读</span></a></div>
+            <div class="sidebar-bottom"><a class="side-link" id="fullscreen-read" href="#" title="全屏阅读"><span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></span><span>全屏阅读</span></a></div>
         </aside>
         <section class="note-list-pane" aria-label="笔记列表">
             <div class="list-heading"><strong id="list-title">全部分组</strong><small id="note-count">加载中</small></div>
@@ -80,7 +104,7 @@
             <div class="reader-body" id="reader-body"><div class="empty-state">正在加载笔记…</div></div>
         </main>
     </div>
-    <button class="restore-pane" id="restore-pane" type="button" title="展开侧栏" aria-label="展开侧栏">&gt;</button>
+    <button class="restore-pane" id="restore-pane" type="button" title="展开侧栏" aria-label="展开侧栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
     <script>
         const noteList = document.getElementById('note-list');
         const reader = document.getElementById('reader-body');
@@ -114,18 +138,24 @@
             return a.localeCompare(b, undefined, { numeric: true });
         }
 
+        const GROUP_ICONS = {
+            all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+            loose: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+            group: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>'
+        };
+
         function renderGroups() {
             // 分组完全从文章路径推导，数据文件里不保存任何分组名
             const counted = [...new Set(pages.map(groupOf))]
                 .map(name => ({ name, count: pages.filter(page => groupOf(page) === name).length }));
             counted.sort((a, b) => groupSort(a.name, b.name));
             const items = [
-                { id: 'all', label: '全部分组', icon: '▦', count: pages.length },
-                ...counted.map(({ name, count }) => ({ id: name, label: name, icon: name === '未分组' ? '▧' : '▤', count }))
+                { id: 'all', label: '全部分组', icon: 'all', count: pages.length },
+                ...counted.map(({ name, count }) => ({ id: name, label: name, icon: name === '未分组' ? 'loose' : 'group', count }))
             ];
             document.getElementById('list-title').textContent = groupLabel();
             document.title = `${groupLabel()} · AI Dev Notes`;
-            document.getElementById('group-list').innerHTML = items.map(group => `<a class="side-link group-link${activeGroup === group.id ? ' active' : ''}" href="#" data-group="${escapeHtml(group.id)}"><span class="side-icon">${group.icon}</span><span>${escapeHtml(group.label)}</span><span class="group-count">${group.count}</span></a>`).join('');
+            document.getElementById('group-list').innerHTML = items.map(group => `<a class="side-link group-link${activeGroup === group.id ? ' active' : ''}" href="#" data-group="${escapeHtml(group.id)}"><span class="side-icon">${GROUP_ICONS[group.icon]}</span><span>${escapeHtml(group.label)}</span><span class="group-count">${group.count}</span></a>`).join('');
         }
 
         function selectGroup(event) {
@@ -153,7 +183,7 @@
             noteList.innerHTML = filtered.length ? filtered.map(page => `
                 <a class="note-item${page.path === activePath ? ' active' : ''}" href="#${encodeURIComponent(page.path)}">
                     <div class="note-title">${escapeHtml(page.label)}</div>
-                    <div class="note-meta"><span>${escapeHtml(page.path)}</span><span>笔记</span></div>
+                    <div class="note-meta"><span class="note-path">${escapeHtml(page.path)}</span></div>
                 </a>`).join('') : '<div class="empty-state">没有找到相关笔记</div>';
         }
 
