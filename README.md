@@ -21,6 +21,23 @@
 - 笔记正文和目录数据用 `fetch(..., { cache: 'no-store' })` 绕过浏览器缓存；图片用按天变化的查询参数绕过浏览器缓存（jsDelivr 本身忽略查询参数做缓存，所以 CDN 层刷新要靠上面的工作流）。
 - 不需要手动打 tag 或记版本号：分支地址 `@main` 的固定缓存约 12 小时，工作流会在每次 push 后清掉。
 
+## 图片自动压缩（L1：本地 pre-commit）
+
+仓库使用 `.githooks/pre-commit`，提交时自动无损压缩暂存区里的图片并重新暂存，所以 push 上去的已经是优化版，不需要改现有的 CDN 刷新工作流。
+
+首次配置（每台机器一次）：
+
+```bash
+python -m pip install -r scripts/requirements-dev.txt
+git config core.hooksPath .githooks
+```
+
+- PNG 用 `oxipng` 做无损压缩，像素和透明度都不变；JPEG/WebP 默认不处理，需要时运行 `python scripts/optimize_images.py --lossy-other` 做有损重编码。
+- 收益低于 5% 的文件自动跳过；脚本幂等，重复运行不会反复压缩。
+- 手动压缩全部图片：`python scripts/optimize_images.py`；只检测不写盘：`python scripts/optimize_images.py --check --all`。
+- 紧急绕过钩子：`SKIP_IMAGE_OPT=1 git commit ...`，但 CI 仍会校验。
+- `.github/workflows/image-check.yml` 在 push/PR 且 `images/**` 有变更时跑同样的检测；若有人绕过钩子提交了未优化图片，CI 会失败并给出修复命令。
+
 ## 本地预览
 
 ```bash

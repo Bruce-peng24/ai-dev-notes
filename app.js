@@ -459,4 +459,38 @@ document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && document.body.classList.contains('reader-fullscreen')) setFocusMode(false);
 });
 window.addEventListener('hashchange', syncRoute);
+
+// 主题：首屏主题已由 head 内联脚本设好，这里只同步按钮状态、持久化和系统偏好跟随
+const themeToggle = document.getElementById('theme-toggle');
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+const systemTheme = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+function syncThemeUi(theme) {
+    const dark = theme === 'dark';
+    if (themeMeta) themeMeta.setAttribute('content', dark ? '#202328' : '#ffffff');
+    const label = dark ? '切换到浅色模式' : '切换到深色模式';
+    themeToggle.setAttribute('aria-label', label);
+    themeToggle.title = label;
+}
+syncThemeUi(document.documentElement.dataset.theme);
+
+themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    syncThemeUi(next);
+    try { localStorage.setItem('notes-theme', next); } catch (error) { /* 存储不可用时仅本次生效 */ }
+});
+
+function onSystemThemeChange(event) {
+    let saved = null;
+    try { saved = localStorage.getItem('notes-theme'); } catch (error) { /* 忽略 */ }
+    if (saved) return;
+    const next = event.matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    syncThemeUi(next);
+}
+if (systemTheme && systemTheme.addEventListener) systemTheme.addEventListener('change', onSystemThemeChange);
+else if (systemTheme && systemTheme.addListener) systemTheme.addListener(onSystemThemeChange);
     

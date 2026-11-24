@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${SKIP_IMAGE_OPT:-0}" = "1" ]; then
+  exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+mapfile -d '' -t staged_files < <(git diff --cached --name-only --diff-filter=ACM -z -- images)
+if [ "${#staged_files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+changed_list=$(mktemp)
+trap 'rm -f "$changed_list"' EXIT
+
+python scripts/optimize_images.py --changed-files-out "$changed_list" "${staged_files[@]}"
+
+if [ -s "$changed_list" ]; then
+  mapfile -t changed_files < "$changed_list"
+  git add -- "${changed_files[@]}"
+  echo "图片已压缩并重新暂存: ${#changed_files[@]} 个文件"
+fi
