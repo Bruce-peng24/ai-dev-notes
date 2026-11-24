@@ -49,9 +49,13 @@
         .tree-group.collapsed .tree-children { display: none; }
         .group-count { margin-left: auto; color: var(--text-3); font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; }
         .tree-children { padding: 2px 0 4px; }
-        .tree-leaf { display: block; overflow: hidden; padding: 7px 10px 7px 30px; border-radius: 6px; color: var(--text-2); font-size: 13px; font-weight: 400; line-height: 1.5; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+        .tree-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tree-leaf { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 10px; border-radius: 6px; color: var(--text-2); font-size: 13px; font-weight: 400; line-height: 1.5; text-decoration: none; }
+        .tree-leaf > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tree-file-icon { flex: none; width: 14px; height: 14px; color: var(--text-3); }
         .tree-leaf:hover { color: var(--accent); background: var(--accent-soft); }
         .tree-leaf.active { color: var(--accent); font-weight: 600; background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+        .tree-leaf.active .tree-file-icon { color: var(--accent); }
         .reader { min-width: 0; overflow: auto; background: var(--surface); }
         .reader-toolbar { position: sticky; z-index: 1; top: 0; height: 56px; display: flex; align-items: center; padding: 0 32px; background: var(--surface); border-bottom: 1px solid var(--line); color: var(--text-3); font-size: 12px; }
         .breadcrumb { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
@@ -128,7 +132,7 @@
         let tocLinks = [];
         let tocRafPending = false;
         let activePath = '';
-        const expandedGroups = new Set();
+        const expandedPaths = new Set();
 
         // jsDelivr 只加速资源；入口 index.html 仍由 GitHub Pages 提供。
         // 本地预览（localhost / 直接打开文件）自动退回本地文件，不请求 CDN。
@@ -169,35 +173,80 @@
         const TREE_CARET = '<svg class="tree-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
         // 分组名完全由文章路径推导；树节点展开状态只在本次会话内保存
+        const TREE_FILE = '<svg class="tree-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+
+        // 按路径的每一段递归建树：docs / 分组 / 子目录 / … / 文件
+        function buildTree() {
+            const root = { name: 'docs', path: '', children: new Map(), page: null };
+            pages.forEach(page => {
+                const segments = page.path.replace(/^\.\//, '').replace(/^docs\//, '').split('/');
+                let node = root;
+                segments.forEach((segment, index) => {
+                    const isFile = index === segments.length - 1;
+                    const key = isFile ? `${segment}::file` : segment;
+                    const path = node.path ? `${node.path}/${segment}` : segment;
+                    if (!node.children.has(key)) {
+                        node.children.set(key, { name: segment, path, children: new Map(), page: isFile ? page : null });
+                    }
+                    node = node.children.get(key);
+                });
+            });
+            return root;
+        }
+
+        function expandAllNodes(node) {
+            if (node.page) return;
+            expandedPaths.add(node.path);
+            node.children.forEach(expandAllNodes);
+        }
+
+        function countFiles(node) {
+            if (node.page) return 1;
+            let total = 0;
+            node.children.forEach(child => { total += countFiles(child); });
+            return total;
+        }
+
+        function hasMatchedFile(node, matched) {
+            if (node.page) return matched.has(node.page.path);
+            let found = false;
+            node.children.forEach(child => { if (hasMatchedFile(child, matched)) found = true; });
+            return found;
+        }
+
+        function renderNode(node, depth, matched, searching) {
+            const indent = 8 + depth * 14;
+            if (node.page) {
+                const page = node.page;
+                return `<a class="tree-leaf${page.path === activePath ? ' active' : ''}" style="padding-left:${indent}px" href="#${encodeURIComponent(page.path)}" title="${escapeHtml(page.path)}">${TREE_FILE}<span>${escapeHtml(node.name)}</span></a>`;
+            }
+            const children = [...node.children.values()]
+                .sort((a, b) => (Boolean(a.page) !== Boolean(b.page) ? (a.page ? 1 : -1) : groupSort(a.name, b.name)))
+                .filter(child => !searching || hasMatchedFile(child, matched));
+            if (!children.length) return '';
+            const expanded = searching || expandedPaths.has(node.path);
+            const childHtml = children.map(child => renderNode(child, depth + 1, matched, searching)).join('');
+            return `<div class="tree-group${expanded ? '' : ' collapsed'}"><div class="tree-group-header" style="padding-left:${indent}px" data-path="${escapeHtml(node.path)}" role="button" tabindex="0" aria-expanded="${expanded}" title="${escapeHtml(node.path)}">${TREE_CARET}<span class="tree-label">${escapeHtml(node.name)}</span><span class="group-count">${countFiles(node)}</span></div><div class="tree-children">${childHtml}</div></div>`;
+        }
+
         function renderTree(query = '') {
             const normalizedQuery = query.trim().toLowerCase();
-            const matched = pages.filter(page => !normalizedQuery
+            const matchedPages = pages.filter(page => !normalizedQuery
                 || page.label.toLowerCase().includes(normalizedQuery)
                 || page.path.toLowerCase().includes(normalizedQuery));
-            const grouped = new Map();
-            matched.forEach(page => {
-                const name = groupOf(page);
-                if (!grouped.has(name)) grouped.set(name, []);
-                grouped.get(name).push(page);
-            });
-            const currentGroup = activePath ? groupLabel() : '';
-            const html = [...grouped.keys()].sort(groupSort).map(name => {
-                const items = grouped.get(name);
-                const expanded = normalizedQuery ? true : expandedGroups.has(name);
-                const leaves = items.map(page => `<a class="tree-leaf${page.path === activePath ? ' active' : ''}" href="#${encodeURIComponent(page.path)}" title="${escapeHtml(page.path)}">${escapeHtml(page.label)}</a>`).join('');
-                return `<div class="tree-group${expanded ? '' : ' collapsed'}"><div class="tree-group-header${name === currentGroup ? ' current' : ''}" data-group="${escapeHtml(name)}" role="button" tabindex="0" aria-expanded="${expanded}">${TREE_CARET}<span>${escapeHtml(name)}</span><span class="group-count">${items.length}</span></div><div class="tree-children">${leaves}</div></div>`;
-            }).join('');
+            const matched = new Set(matchedPages.map(page => page.path));
+            const html = renderNode(buildTree(), 0, matched, Boolean(normalizedQuery));
             groupList.innerHTML = html || '<div class="empty-state">没有找到相关笔记</div>';
-            document.getElementById('note-count').textContent = `${matched.length} notes`;
+            document.getElementById('note-count').textContent = `${matchedPages.length} notes`;
             document.title = `${activePath ? groupLabel() : 'All notes'} · AI Dev Notes`;
         }
 
         function toggleGroup(event) {
             const header = event.target.closest('.tree-group-header');
             if (!header) return;
-            const name = header.dataset.group;
-            if (expandedGroups.has(name)) expandedGroups.delete(name);
-            else expandedGroups.add(name);
+            const path = header.dataset.path;
+            if (expandedPaths.has(path)) expandedPaths.delete(path);
+            else expandedPaths.add(path);
             renderTree(search.value);
         }
 
@@ -470,7 +519,7 @@
         fetchPages()
             .then(loaded => {
                 pages = loaded;
-                pages.forEach(page => expandedGroups.add(groupOf(page)));
+                expandAllNodes(buildTree());
                 renderTree(search.value);
                 syncRoute();
                 if (!location.hash) location.hash = encodeURIComponent(pages[0].path);
