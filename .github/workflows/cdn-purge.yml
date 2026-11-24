@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'styles.css'
+      - 'app.js'
       - 'docs/**'
       - 'images/**'
   workflow_dispatch:
@@ -24,13 +26,13 @@ jobs:
         id: files
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            files=$(git ls-files 'index.html' 'docs/*' 'images/*')
+            files=$(git ls-files 'index.html' 'styles.css' 'app.js' 'docs/*' 'images/*')
           else
             before="${{ github.event.before }}"
             if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
               before=$(git rev-list --max-parents=0 HEAD | head -n 1)
             fi
-            files=$(git diff --name-only "$before" "${{ github.sha }}" -- index.html docs images)
+            files=$(git diff --name-only "$before" "${{ github.sha }}" -- index.html styles.css app.js docs images)
           fi
           printf '%s\n' "$files" | sed '/^$/d' > changed-files.txt
           echo "count=$(wc -l < changed-files.txt)" >> "$GITHUB_OUTPUT"

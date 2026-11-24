@@ -15,7 +15,7 @@
 
 ## CDN 加速与缓存刷新
 
-线上打开时，笔记正文、图片、marked.js 和目录数据都从 `cdn.jsdelivr.net` 拉取；入口 `index.html` 仍由 GitHub Pages 提供。
+线上打开时，笔记正文、图片、marked.js 和目录数据都从 `cdn.jsdelivr.net` 拉取；入口 `index.html` 以及外链的 `styles.css`、`app.js` 仍由 GitHub Pages 提供。
 
 - 推送到 `main` 后，`.github/workflows/cdn-purge.yml` 会自动刷新变更文件在 jsDelivr 上的缓存；也可以在 Actions 页面手动 `Run workflow` 全量刷新。
 - 笔记正文和目录数据用 `fetch(..., { cache: 'no-store' })` 绕过浏览器缓存；图片用按天变化的查询参数绕过浏览器缓存（jsDelivr 本身忽略查询参数做缓存，所以 CDN 层刷新要靠上面的工作流）。
