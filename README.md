@@ -6,19 +6,19 @@
 
 项目是 GitHub Pages 静态站点，不需要 Node/npm 服务，也不需要写死分组：
 
-- 线上打开时，`index.html` 直接调用 GitHub API 读取仓库文件树（`git/trees/<默认分支>?recursive=1`），**运行时动态获取 `docs/` 下所有 `.md` 路径**；
-- 仓库地址从 `xxx.github.io/<repo>` 自动推导，不写死；
+- 线上打开时，`app.js` 从 jsDelivr 读取仓库根目录的 `manifest.json`，**动态获取 `docs/` 下所有 `.md` 路径**；
+- `manifest.json` 由 `.github/workflows/cdn-purge.yml` 在每次 push 后自动生成并提交（无需手动维护），push 后约几十秒刷新页面即可看到新文件夹和文章；
 - 分组名和文章标题由前端从路径推导，数据里没有分组字段；
-- 新建文件夹或新增文章后，push 到 `main`，刷新页面即可看到新分组；
+- 本地开发时用 `python -m http.server 8000`，前端直接递归扫描 `./docs/` 的目录列表；
 
-注意：GitHub API 仅作为 jsDelivr 目录数据失败时的回退；本地未提交的新建文件夹也不会出现在 CDN 目录里。
+注意：不要改回 jsDelivr 的 `data.jsdelivr.com` 目录接口——它的 `@main` 缓存长达 1 年，且 purge、query 参数、请求头都无法绕过，曾经线上看不到 `docs/group1/subGroup1/` 就是命中了旧清单。同理线上目录也不走 GitHub API（访问慢）。
 
 ## CDN 加速与缓存刷新
 
-线上打开时，笔记正文、图片、marked.js 和目录数据都从 `cdn.jsdelivr.net` 拉取；入口 `index.html` 以及外链的 `styles.css`、`app.js` 仍由 GitHub Pages 提供。
+线上打开时，笔记正文、图片、marked.js 和目录清单 `manifest.json` 都从 `cdn.jsdelivr.net` 拉取；入口 `index.html` 以及外链的 `styles.css`、`app.js` 仍由 GitHub Pages 提供。
 
-- 推送到 `main` 后，`.github/workflows/cdn-purge.yml` 会自动刷新变更文件在 jsDelivr 上的缓存；也可以在 Actions 页面手动 `Run workflow` 全量刷新。
-- 笔记正文和目录数据用 `fetch(..., { cache: 'no-store' })` 绕过浏览器缓存；图片用按天变化的查询参数绕过浏览器缓存（jsDelivr 本身忽略查询参数做缓存，所以 CDN 层刷新要靠上面的工作流）。
+- 推送到 `main` 后，`.github/workflows/cdn-purge.yml` 会重新生成 `manifest.json` 并提交，再刷新所有变更文件（含清单）在 jsDelivr 上的缓存；也可以在 Actions 页面手动 `Run workflow` 全量刷新。
+- 笔记正文和目录清单用 `fetch(..., { cache: 'no-store' })` 绕过浏览器缓存；图片用按天变化的查询参数绕过浏览器缓存（jsDelivr 本身忽略查询参数做缓存，所以 CDN 层刷新要靠上面的工作流）。
 - 不需要手动打 tag 或记版本号：分支地址 `@main` 的固定缓存约 12 小时，工作流会在每次 push 后清掉。
 
 ## 图片自动压缩（L1：本地 pre-commit）

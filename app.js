@@ -302,48 +302,16 @@ function normalizePage(item) {
     };
 }
 
-async function fetchPagesFromJsDelivr() {
-    // data.jsdelivr.com 的响应默认带 1 年 max-age，no-store 让浏览器每次都重新拉取。
-    const url = `https://data.jsdelivr.com/v1/packages/gh/${REPO}@${BRANCH}?structure=flat`;
+async function fetchPagesFromManifest() {
+    // 静态清单由 cdn-purge 工作流在每次 push 后重新生成并刷新缓存，
+    // 走文件 CDN，保留 jsDelivr 的速度，又不依赖缓存长达 1 年的目录接口。
     try {
-        const response = await fetch(url, { cache: 'no-store' });
+        const response = await fetch(`${CDN_BASE}/manifest.json`, { cache: 'no-store' });
         if (!response.ok) return null;
-        const info = await response.json();
-        const found = (info.files || [])
-            .filter(file => /^\/docs\/.*\.md$/i.test(file.name))
-            .map(file => normalizePage({ path: file.name.replace(/^\//, '') }));
-        return found.length ? found : null;
-    } catch {
-        return null;
-    }
-}
-
-async function fetchPagesFromGitHub() {
-    // GitHub Pages 本身就是静态服务器，浏览器列不了目录，
-    // 但可以直接调用 GitHub API 读取仓库文件树，实现运行时动态获取路径。
-    // 仓库信息从当前 Pages 地址推导，不写死。
-    const host = location.hostname;
-    if (!host.endsWith('.github.io')) return null;
-
-    const owner = host.slice(0, -'.github.io'.length);
-    const segments = location.pathname.split('/').filter(Boolean);
-    const repo = segments[0] && !segments[0].endsWith('.html')
-        ? segments[0]
-        : `${owner}.github.io`;
-
-    try {
-        const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
-        if (!repoResponse.ok) return null;
-        const repoInfo = await repoResponse.json();
-        const branch = repoInfo.default_branch || 'main';
-
-        const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
-        if (!treeResponse.ok) return null;
-        const treeInfo = await treeResponse.json();
-
-        const found = (treeInfo.tree || [])
-            .filter(item => item.type === 'blob' && item.path.startsWith('docs/') && /\.md$/i.test(item.path))
-            .map(item => normalizePage({ path: item.path }));
+        const list = await response.json();
+        const found = (Array.isArray(list) ? list : [])
+            .filter(path => typeof path === 'string' && /^\.?\/?docs\/.*\.md$/i.test(path))
+            .map(path => normalizePage({ path: path.replace(/^\.\//, '') }));
         return found.length ? found : null;
     } catch {
         return null;
@@ -385,13 +353,10 @@ async function fetchPagesFromDirectoryListing() {
 }
 
 async function fetchPages() {
-    // 线上优先走 jsDelivr 的目录数据，失败再回退 GitHub API；本地走目录索引
+    // 线上走 jsDelivr 上的静态清单；清单不可用时回退本地目录索引（本地开发用）
     if (useCdn) {
-        const fromCdn = await fetchPagesFromJsDelivr();
-        if (fromCdn) return fromCdn;
-
-        const fromGitHub = await fetchPagesFromGitHub();
-        if (fromGitHub) return fromGitHub;
+        const fromManifest = await fetchPagesFromManifest();
+        if (fromManifest) return fromManifest;
     }
 
     const fromListing = await fetchPagesFromDirectoryListing();

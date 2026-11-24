@@ -9,10 +9,11 @@ on:
       - 'app.js'
       - 'docs/**'
       - 'images/**'
+      - 'manifest.json'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   purge:
@@ -22,11 +23,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      # jsDelivr 的目录清单接口 @main 缓存长达 1 年且无法刷新，
+      # 改为在仓库里维护一份静态清单，走文件 CDN（可被 purge）。
+      # GITHUB_TOKEN 推送的提交不会触发新 workflow，purge 必须在本次运行内完成。
+      - name: Generate notes manifest
+        id: manifest
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          files = sorted(str(p).replace('\\', '/') for p in pathlib.Path('docs').rglob('*.md'))
+          pathlib.Path('manifest.json').write_text(
+              json.dumps(files, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(f'manifest: {len(files)} notes')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: update notes manifest"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Collect changed files
         id: files
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            files=$(git ls-files 'index.html' 'styles.css' 'app.js' 'docs/*' 'images/*')
+            files=$(git ls-files 'index.html' 'styles.css' 'app.js' 'docs/*' 'images/*' 'manifest.json')
           else
             before="${{ github.event.before }}"
             if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
@@ -35,6 +60,10 @@ jobs:
             files=$(git diff --name-only "$before" "${{ github.sha }}" -- index.html styles.css app.js docs images)
           fi
           printf '%s\n' "$files" | sed '/^$/d' > changed-files.txt
+          if [ "${{ steps.manifest.outputs.changed }}" = "true" ]; then
+            printf '%s\n' 'manifest.json' >> changed-files.txt
+            sort -u changed-files.txt -o changed-files.txt
+          fi
           echo "count=$(wc -l < changed-files.txt)" >> "$GITHUB_OUTPUT"
           cat changed-files.txt
 
