@@ -11,7 +11,15 @@
 - 分组名和文章标题由前端从路径推导，数据里没有分组字段；
 - 新建文件夹或新增文章后，push 到 `main`，刷新页面即可看到新分组；
 
-注意：GitHub API 读的是**已推送到仓库**的文件；本地未提交的新建文件夹不会出现在 API 结果里。
+注意：GitHub API 仅作为 jsDelivr 目录数据失败时的回退；本地未提交的新建文件夹也不会出现在 CDN 目录里。
+
+## CDN 加速与缓存刷新
+
+线上打开时，笔记正文、图片、marked.js 和目录数据都从 `cdn.jsdelivr.net` 拉取；入口 `index.html` 仍由 GitHub Pages 提供。
+
+- 推送到 `main` 后，`.github/workflows/cdn-purge.yml` 会自动刷新变更文件在 jsDelivr 上的缓存；也可以在 Actions 页面手动 `Run workflow` 全量刷新。
+- 笔记正文和目录数据用 `fetch(..., { cache: 'no-store' })` 绕过浏览器缓存；图片用按天变化的查询参数绕过浏览器缓存（jsDelivr 本身忽略查询参数做缓存，所以 CDN 层刷新要靠上面的工作流）。
+- 不需要手动打 tag 或记版本号：分支地址 `@main` 的固定缓存约 12 小时，工作流会在每次 push 后清掉。
 
 ## 本地预览
 

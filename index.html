@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="theme-color" content="#ffffff">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@18.3.0/lib/marked.umd.js"></script>
     <title>AI Dev Notes</title>
     <style>
         :root {
@@ -136,6 +136,16 @@
         let activePath = '';
         let activeGroup = 'all';
 
+        // jsDelivr 只加速资源；入口 index.html 仍由 GitHub Pages 提供。
+        // 本地预览（localhost / 直接打开文件）自动退回本地文件，不请求 CDN。
+        const REPO = 'Bruce-peng24/ai-dev-notes';
+        const BRANCH = 'main';
+        const CDN_HOST = 'cdn.jsdelivr.net';
+        const CDN_BASE = `https://${CDN_HOST}/gh/${REPO}@${BRANCH}`;
+        const useCdn = location.protocol !== 'file:' && !['localhost', '127.0.0.1'].includes(location.hostname);
+        // CDN 会忽略查询参数做缓存，但浏览器不会；按天换参数可绕开浏览器对图片的 7 天缓存。
+        const browserBust = `?v=${new Date().toISOString().slice(0, 10)}`;
+
         marked.setOptions({ breaks: true, gfm: true });
 
         function pageGroup(path) {
@@ -262,6 +272,16 @@
 
                 const resolved = new URL(value, noteBase);
 
+                // 站内图片/视频改走 CDN；按天换查询参数只影响浏览器缓存，不影响 CDN 缓存键
+                if (useCdn && ['IMG', 'VIDEO', 'SOURCE'].includes(el.tagName)
+                    && resolved.origin === siteRoot.origin
+                    && resolved.pathname.startsWith(siteRoot.pathname)) {
+                    let relative = resolved.pathname.slice(siteRoot.pathname.length);
+                    try { relative = decodeURIComponent(relative); } catch (error) { /* 保留原始编码 */ }
+                    el.setAttribute(attr, `${CDN_BASE}/${relative}${browserBust}`);
+                    return;
+                }
+
                 // 站内指向其他笔记的相对链接转成 hash 路由，避免跳出当前这个静态站
                 if (attr === 'href' && /\.md(?:[?#]|$)/i.test(value)
                     && resolved.origin === siteRoot.origin
@@ -291,7 +311,18 @@
             setReaderHtml('<div class="empty-state">正在打开笔记…</div>');
             renderList(search.value);
             try {
-                const response = await fetch(`./${page.path}`);
+                let response;
+                if (useCdn) {
+                    try {
+                        // no-store：浏览器不缓存笔记正文，push 后由自动刷新工作流清 CDN 缓存即可生效
+                        response = await fetch(`${CDN_BASE}/${encodeURI(page.path)}`, { cache: 'no-store' });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    } catch {
+                        response = await fetch(`./${page.path}`);
+                    }
+                } else {
+                    response = await fetch(`./${page.path}`);
+                }
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const markdown = await response.text();
                 const rendered = marked.parse(markdown);
@@ -313,6 +344,22 @@
                 label: String(item.label || fallback),
                 group: item.group || pageGroup(pagePath)
             };
+        }
+
+        async function fetchPagesFromJsDelivr() {
+            // data.jsdelivr.com 的响应默认带 1 年 max-age，no-store 让浏览器每次都重新拉取。
+            const url = `https://data.jsdelivr.com/v1/packages/gh/${REPO}@${BRANCH}?structure=flat`;
+            try {
+                const response = await fetch(url, { cache: 'no-store' });
+                if (!response.ok) return null;
+                const info = await response.json();
+                const found = (info.files || [])
+                    .filter(file => /^\/docs\/.*\.md$/i.test(file.name))
+                    .map(file => normalizePage({ path: file.name.replace(/^\//, '') }));
+                return found.length ? found : null;
+            } catch {
+                return null;
+            }
         }
 
         async function fetchPagesFromGitHub() {
@@ -382,9 +429,14 @@
         }
 
         async function fetchPages() {
-            // 线上走 GitHub API；本地静态服务器走目录索引
-            const fromGitHub = await fetchPagesFromGitHub();
-            if (fromGitHub) return fromGitHub;
+            // 线上优先走 jsDelivr 的目录数据，失败再回退 GitHub API；本地走目录索引
+            if (useCdn) {
+                const fromCdn = await fetchPagesFromJsDelivr();
+                if (fromCdn) return fromCdn;
+
+                const fromGitHub = await fetchPagesFromGitHub();
+                if (fromGitHub) return fromGitHub;
+            }
 
             const fromListing = await fetchPagesFromDirectoryListing();
             if (fromListing) return fromListing;

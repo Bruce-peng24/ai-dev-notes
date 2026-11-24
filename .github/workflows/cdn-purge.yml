@@ -1,0 +1,50 @@
+name: Purge jsDelivr cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'docs/**'
+      - 'images/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed files
+        id: files
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            files=$(git ls-files 'index.html' 'docs/*' 'images/*')
+          else
+            before="${{ github.event.before }}"
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+              before=$(git rev-list --max-parents=0 HEAD | head -n 1)
+            fi
+            files=$(git diff --name-only "$before" "${{ github.sha }}" -- index.html docs images)
+          fi
+          printf '%s\n' "$files" | sed '/^$/d' > changed-files.txt
+          echo "count=$(wc -l < changed-files.txt)" >> "$GITHUB_OUTPUT"
+          cat changed-files.txt
+
+      - name: Purge jsDelivr
+        if: steps.files.outputs.count != '0'
+        run: |
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            file=$(printf '%s' "$file" | sed 's/ /%20/g')
+            path="/gh/${{ github.repository }}@main/$file"
+            echo "Purge $path"
+            curl -fsS "https://purge.jsdelivr.net$path"
+            echo
+          done < changed-files.txt
+          echo "jsDelivr purge done."
